@@ -16,17 +16,17 @@ def build_sidebar():
     if not tickers:
         return None, None
     
-    tickers = [t + ".SA" for t in tickers]
-    start_date = st.date_input("De", format="DD/MM/YYYY", value=datetime(2023, 1, 2))
-    end_date = st.date_input("Até", format="DD/MM/YYYY", value="today")
+    tickers_with_suffix = [t + ".SA" for t in tickers]
+    start_date = st.date_input("De", value=datetime(2023, 1, 2))
+    end_date = st.date_input("Até", value=datetime.today())
 
     # Download de dados históricos
-    prices = yf.download(tickers, start=start_date, end=end_date)["Adj Close"]
+    prices = yf.download(tickers_with_suffix, start=start_date, end=end_date)["Adj Close"]
 
     # Se houver apenas um ticker, prices será uma Série. Convertê-la para DataFrame
     if isinstance(prices, pd.Series):
         prices = prices.to_frame()
-        prices.columns = [tickers[0].rstrip(".SA")]
+        prices.columns = [tickers[0]]
 
     # Limpeza de colunas para remover o sufixo ".SA"
     prices.columns = prices.columns.str.rstrip(".SA")
@@ -36,27 +36,56 @@ def build_sidebar():
 
     return tickers, prices
 
+def get_additional_data(tickers):
+    additional_data = {}
+    for ticker in tickers:
+        stock_info = yf.Ticker(f"{ticker}.SA").info
+        additional_data[ticker] = {
+            'Dividend Yield': stock_info.get('dividendYield', 0) * 100,
+            'Preço Atual': stock_info.get('currentPrice', None),
+            'Rentabilidade': stock_info.get('returnOnEquity', 0) * 100
+        }
+    return pd.DataFrame(additional_data).T
+
 def build_main(tickers, prices):
     weights = np.ones(len(tickers)) / len(tickers)
-    prices['portfolio'] = prices.drop("IBOV", axis=1) @ weights
-    norm_prices = 100 * prices / prices.iloc[0]
-    returns = prices.pct_change()[1:]
+    portfolio_values = prices[tickers] @ weights
+    prices_with_portfolio = prices.assign(portfolio=portfolio_values)
+
+    norm_prices = 100 * prices_with_portfolio / prices_with_portfolio.iloc[0]
+    returns = prices_with_portfolio.pct_change()[1:]
     vols = returns.std() * np.sqrt(252)
     rets = (norm_prices.iloc[-1] - 100) / 100
 
+    # Obter dados adicionais de cada ativo
+    additional_data = get_additional_data(tickers)
+
+    # Ajuste de layout para exibir ícone centralizado acima da tabela
     mygrid = grid(5, 5, 5, 5, 5, 5, vertical_align="top")
-    for t in prices.columns:
+    for t in prices_with_portfolio.columns:
         c = mygrid.container(border=True)
         c.subheader(t, divider="red")
-        colA, colB, colC = c.columns(3)
+
+        # Exibir ícone centralizado acima da tabela
         if t == "portfolio":
-            colA.image("images/pie-chart-dollar-svgrepo-com.svg")
+            c.image("images/pie-chart-dollar-svgrepo-com.svg", width=60)
         elif t == "IBOV":
-            colA.image("images/pie-chart-svgrepo-com.svg")
+            c.image("images/pie-chart-svgrepo-com.svg", width=60)
         else:
-            colA.image(f'https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/{t}.png', width=85)
-        colB.metric(label="retorno", value=f"{rets[t]:.0%}")
-        colC.metric(label="volatilidade", value=f"{vols[t]:.0%}")
+            c.image(f'https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/{t}.png', width=60)
+
+        # Configurar as métricas em uma tabela sem índice
+        metrics = {
+            "Retorno": f"{rets.get(t, 0):.0%}",
+            "Volatilidade": f"{vols.get(t, 0):.0%}",
+            "Dividend Yield": f"{additional_data.loc[t, 'Dividend Yield']:.2f}%" if t in additional_data.index else "N/A",
+            "Preço Atual": f"R${additional_data.loc[t, 'Preço Atual']:.2f}" if t in additional_data.index else "N/A"
+        }
+
+        # Renderizar tabela sem a coluna de índice
+        metrics_df = pd.DataFrame([metrics])
+        c.table(metrics_df.style.hide(axis="index"))
+
         style_metric_cards(background_color='rgba(255,255,255,0)')
 
     col1, col2 = st.columns(2, gap='large')
@@ -86,13 +115,13 @@ def build_main(tickers, prices):
         fig.layout.coloraxis.colorbar.title = 'Sharpe'
         st.plotly_chart(fig, use_container_width=True)
 
-        
+
 st.set_page_config(layout="wide")
 
 with st.sidebar:
     tickers, prices = build_sidebar()
 
-st.title('Python para Investidores')
+st.title('Análise de parâmetros de ações')
 
 if tickers:
     build_main(tickers, prices)

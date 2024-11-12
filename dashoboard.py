@@ -77,12 +77,24 @@ def build_main(tickers, prices):
             col_image.image(f'https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/{t}.png', width=60)
             col_text.subheader(t, divider="red")
 
-        # Exibir cada métrica individualmente, sem utilizar DataFrame
+        # Função para exibir métricas com divisores
+        def display_metric(label, value):
+            st.markdown(
+                f"""
+                <div style="display: flex; justify-content: space-between; padding: 5px 0;">
+                    <span>{label}:</span> <span>{value}</span>
+                </div>
+                <hr style="border: none; border-top: 1px solid #ccc; margin: 5px 0;">
+                """,
+                unsafe_allow_html=True
+            )
+
+        # Exibir cada métrica individualmente com divisores
         with c:
-            st.write("Retorno:", f"{rets.get(t, 0):.0%}")
-            st.write("Volatilidade:", f"{vols.get(t, 0):.0%}")
-            st.write("Dividend Yield:", f"{additional_data.loc[t, 'Dividend Yield']:.2f}%" if t in additional_data.index else "N/A")
-            st.write("Preço Atual:", f"R${additional_data.loc[t, 'Preço Atual']:.2f}" if t in additional_data.index else "N/A")
+            display_metric("Retorno", f"{rets.get(t, 0):.0%}")
+            display_metric("Volatilidade", f"{vols.get(t, 0):.0%}")
+            display_metric("Dividend Yield", f"{additional_data.loc[t, 'Dividend Yield']:.2f}%" if t in additional_data.index else "N/A")
+            display_metric("Preço Atual", f"R${additional_data.loc[t, 'Preço Atual']:.2f}" if t in additional_data.index else "N/A")
 
         style_metric_cards(background_color='rgba(255,255,255,0)')
 

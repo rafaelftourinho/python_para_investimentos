@@ -60,31 +60,29 @@ def build_main(tickers, prices):
     # Obter dados adicionais de cada ativo
     additional_data = get_additional_data(tickers)
 
-    # Ajuste de layout para exibir ícone centralizado acima da tabela
+    # Ajuste de layout para exibir ícone e nome do ticker na mesma linha
     mygrid = grid(5, 5, 5, 5, 5, 5, vertical_align="top")
     for t in prices_with_portfolio.columns:
         c = mygrid.container(border=True)
-        c.subheader(t, divider="red")
+        col_image, col_text = c.columns([1, 4])
 
-        # Exibir ícone centralizado acima da tabela
+        # Exibir ícone ao lado do nome do ticker
         if t == "portfolio":
-            c.image("images/pie-chart-dollar-svgrepo-com.svg", width=60)
+            col_image.image("images/pie-chart-dollar-svgrepo-com.svg", width=60)
+            col_text.subheader("Portfolio", divider="red")
         elif t == "IBOV":
-            c.image("images/pie-chart-svgrepo-com.svg", width=60)
+            col_image.image("images/pie-chart-svgrepo-com.svg", width=60)
+            col_text.subheader("IBOV", divider="red")
         else:
-            c.image(f'https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/{t}.png', width=60)
+            col_image.image(f'https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/{t}.png', width=60)
+            col_text.subheader(t, divider="red")
 
-        # Configurar as métricas em uma tabela sem índice
-        metrics = {
-            "Retorno": f"{rets.get(t, 0):.0%}",
-            "Volatilidade": f"{vols.get(t, 0):.0%}",
-            "Dividend Yield": f"{additional_data.loc[t, 'Dividend Yield']:.2f}%" if t in additional_data.index else "N/A",
-            "Preço Atual": f"R${additional_data.loc[t, 'Preço Atual']:.2f}" if t in additional_data.index else "N/A"
-        }
-
-        # Renderizar tabela sem a coluna de índice
-        metrics_df = pd.DataFrame([metrics])
-        c.table(metrics_df.style.hide(axis="index"))
+        # Exibir cada métrica individualmente, sem utilizar DataFrame
+        with c:
+            st.write("Retorno:", f"{rets.get(t, 0):.0%}")
+            st.write("Volatilidade:", f"{vols.get(t, 0):.0%}")
+            st.write("Dividend Yield:", f"{additional_data.loc[t, 'Dividend Yield']:.2f}%" if t in additional_data.index else "N/A")
+            st.write("Preço Atual:", f"R${additional_data.loc[t, 'Preço Atual']:.2f}" if t in additional_data.index else "N/A")
 
         style_metric_cards(background_color='rgba(255,255,255,0)')
 
